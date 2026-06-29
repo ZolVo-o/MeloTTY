@@ -69,16 +69,16 @@ impl Config {
         let config_path = get_config_path();
         
         let content = format!(
-            r#"# termusic configuration file
-# Редактируйте этот файл для настройки плеера
+            r#"# termvibes configuration file
+# Edit this file to customize the player
 
-# Начальная директория при запуске (оставьте пустым для автоопределения)
+# Start directory on launch (leave empty for auto-detect)
 start_dir = {}
 
-# Громкость по умолчанию (от 0.0 до 1.0)
+# Default volume level (0.0 to 1.0)
 default_volume = {}
 
-# Показывать скрытые файлы и папки
+# Show hidden files and folders
 show_hidden_files = {}
 "#,
             self.start_dir.as_deref().unwrap_or(""),
@@ -92,5 +92,5 @@ show_hidden_files = {}
 
 fn get_config_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".config/termusic.conf")
+    PathBuf::from(home).join(".config/termvibes.conf")
 }

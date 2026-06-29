@@ -30,9 +30,8 @@ pub struct App {
 impl App {
     pub fn new(start_path: Option<String>) -> Result<Self> {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        let playlist_path = PathBuf::from(&home).join(".termusic_playlist.m3u");
+        let playlist_path = PathBuf::from(&home).join(".termvibes_playlist.m3u");
 
-        // Всегда начинаем с домашней папки если не указан путь
         let start_dir = if let Some(p) = start_path {
             let path = PathBuf::from(p);
             if path.exists() {

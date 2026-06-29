@@ -1,12 +1,10 @@
-# 🎵 termusic
+# 🎵 termvibes
 
 ![Rust](https://img.shields.io/badge/rust-1.96+-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20arch-brightgreen.svg)
 
-**termusic** — высококачественный консольный аудиоплеер для Linux, написанный на Rust. Работает в любом терминале, включая TTY, и не требует X-сервера или Wayland.
-
-![screenshot](https://user-images.githubusercontent.com/placeholder/termusic.png)
+**termvibes** — высококачественный консольный аудиоплеер для Linux, написанный на Rust. Работает в любом терминале, включая TTY, и не требует X-сервера или Wayland.
 
 ## ✨ Возможности
 
@@ -26,15 +24,15 @@
 ### Arch Linux (AUR)
 
 ```bash
-yay -S termusic
+yay -S termvibes-git
 
 Из исходников
 bash
 
-git clone https://github.com/zolvo/termusic.git
-cd termusic
+git clone https://github.com/ZolVo-o/termvibes.git
+cd termvibes
 cargo build --release
-sudo cp target/release/termusic /usr/local/bin/
+sudo cp target/release/termvibes /usr/local/bin/
 
 Зависимости
 bash
@@ -46,10 +44,10 @@ rustup default stable
 🚀 Использование
 bash
 
-termusic                  # запуск (откроет домашнюю папку)
-termusic ~/Music          # указать папку
-termusic track.mp3        # указать файл
-termusic --help           # справка по аргументам
+termvibes                  # запуск (откроет домашнюю папку)
+termvibes ~/Music          # указать папку
+termvibes track.mp3        # указать файл
+termvibes --help           # справка по аргументам
 
 🎮 Управление
 Глобальные клавиши
@@ -78,7 +76,7 @@ D	Удалить трек
 C	Очистить всё
 ⚙️ Конфигурация
 
-Файл ~/.config/termusic.conf:
+Файл ~/.config/termvibes.conf:
 ini
 
 # Стартовая директория (пусто = авто)
@@ -144,4 +142,4 @@ src/
 Pull request'ы приветствуются! Для серьёзных изменений — сначала откройте issue.
 📄 Лицензия
 
-MIT © 2026 zolvo
+MIT © 2026 ZolVo-o

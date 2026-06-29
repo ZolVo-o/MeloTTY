@@ -1232,7 +1232,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "termusic"
+name = "termvibes"
 version = "0.3.0"
 dependencies = [
  "anyhow",
