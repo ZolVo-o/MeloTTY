@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
@@ -83,20 +83,29 @@ impl Playlist {
         }
 
         if self.shuffle {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .subsec_nanos();
-            self.current_index = (nanos as usize) % self.tracks.len();
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            
+            // Ensure we don't pick the same track twice in a row (if more than 1 track)
+            if self.tracks.len() > 1 {
+                let current = self.current_index;
+                let mut new_idx = rng.gen_range(0..self.tracks.len());
+                while new_idx == current {
+                    new_idx = rng.gen_range(0..self.tracks.len());
+                }
+                self.current_index = new_idx;
+            } else {
+                self.current_index = 0;
+            }
         } else {
             self.current_index += 1;
             if self.current_index >= self.tracks.len() {
-                self.current_index = if self.repeat == RepeatMode::All {
-                    0
+                if self.repeat == RepeatMode::All {
+                    self.current_index = 0;
                 } else {
-                    self.tracks.len() - 1
-                };
+                    self.current_index = self.tracks.len().saturating_sub(1);
+                    return None; // End of playlist
+                }
             }
         }
 
@@ -109,7 +118,11 @@ impl Playlist {
         }
 
         if self.current_index == 0 {
-            self.current_index = self.tracks.len() - 1;
+            if self.repeat == RepeatMode::All {
+                self.current_index = self.tracks.len() - 1;
+            } else {
+                return None;
+            }
         } else {
             self.current_index -= 1;
         }
@@ -146,6 +159,17 @@ impl Playlist {
         self.tracks.is_empty()
     }
 
+    pub fn shuffle_playlist(&mut self) {
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        self.tracks.shuffle(&mut rng);
+        self.current_index = 0;
+    }
+
+    pub fn sort_playlist(&mut self) {
+        self.tracks.sort();
+    }
+
     pub fn save_to_file(&self, path: &Path) -> io::Result<()> {
         let mut file = File::create(path)?;
         for track in &self.tracks {
@@ -159,11 +183,14 @@ impl Playlist {
             return Ok(());
         }
 
-        let content = fs::read_to_string(path)?;
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        
         self.tracks.clear();
         
-        for line in content.lines() {
-            let track_path = PathBuf::from(line);
+        for line in reader.lines() {
+            let line = line?;
+            let track_path = PathBuf::from(line.trim());
             if track_path.exists() && is_audio_file(&track_path) {
                 self.tracks.push(track_path);
             }
@@ -177,7 +204,7 @@ pub fn is_audio_file(path: &Path) -> bool {
     match path.extension().and_then(|s| s.to_str()) {
         Some(ext) => matches!(
             ext.to_lowercase().as_str(),
-            "mp3" | "wav" | "flac" | "ogg" | "aac" | "m4a" | "opus" | "wma"
+            "mp3" | "wav" | "flac" | "ogg" | "aac" | "m4a" | "opus" | "wma" | "ape" | "alac"
         ),
         None => false,
     }

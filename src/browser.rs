@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 
 use crate::playlist::is_audio_file;
 
+use rand::Rng;
+
 pub struct FileBrowser {
     current_dir: PathBuf,
     entries: Vec<PathBuf>,
@@ -115,7 +117,14 @@ impl FileBrowser {
         }
 
         let query = query.to_lowercase();
+        
+        // Find first match after the bookmark section (index 2 = after "─── СОДЕРЖИМОЕ ───")
         for (i, path) in self.entries.iter().enumerate() {
+            // Skip bookmark headers and bookmarks themselves
+            if i <= 2 || self.bookmarks.contains(path) {
+                continue;
+            }
+            
             let name = path.file_name()
                 .map(|n| n.to_string_lossy().to_lowercase())
                 .unwrap_or_default();
@@ -142,6 +151,21 @@ impl FileBrowser {
             self.selected += 1;
             if self.selected >= self.scroll + 20 {
                 self.scroll = self.selected - 19;
+            }
+        }
+    }
+
+    pub fn navigate_to_top(&mut self) {
+        self.selected = 1; // First bookmark
+        self.scroll = 0;
+    }
+
+    pub fn navigate_to_bottom(&mut self) {
+        if !self.entries.is_empty() {
+            self.selected = self.entries.len() - 1;
+            let visible_height = 20;
+            if self.selected >= visible_height {
+                self.scroll = self.selected - visible_height + 1;
             }
         }
     }

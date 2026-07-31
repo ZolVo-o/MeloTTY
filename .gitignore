@@ -1,7 +1,28 @@
-/target
-/.idea
+```
+# Rust/Cargo specific
+target/
+**/*.rs.bk
+*.lock
+
+# Dependencies
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
 *.swp
 *.swo
-*~
+
+# OS generated files
 .DS_Store
-*.m3u
+Thumbs.db
+```
