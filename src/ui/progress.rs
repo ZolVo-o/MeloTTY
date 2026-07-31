@@ -57,7 +57,7 @@ pub fn render_with_spectrum(
             .fg(gauge_color)
             .bg(theme.bg_darker)
             .add_modifier(if is_playing { Modifier::BOLD } else { Modifier::DIM }))
-        .label(Line::from(Span::styled(
+        .label(Span::from(Span::styled(
             time_label,
             Style::default().fg(theme.fg_dim),
         )))

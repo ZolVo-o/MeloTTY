@@ -45,7 +45,7 @@ pub fn render_enhanced(f: &mut Frame, area: Rect, playlist: &Playlist, is_active
                     .bg(theme.yellow)
                     .add_modifier(Modifier::BOLD))
             } else {
-                (format!("{:02}.", actual_idx + 1), Style::default().fg(theme.fg_dim))
+                (format!("{:02}.", actual_idx + 1).as_str(), Style::default().fg(theme.fg_dim))
             };
 
             let display_style = if is_current {
