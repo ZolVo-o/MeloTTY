@@ -8,11 +8,13 @@ mod search;
 mod status_bar;
 
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
-    style::Style,
-    widgets::Block,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
+    symbols::border,
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
+use ratatui::text::{Line, Span};
 use std::time::{Duration, Instant};
 
 use crate::app::Mode;
@@ -20,7 +22,7 @@ use crate::browser::FileBrowser;
 use crate::playlist::Playlist;
 
 pub use theme::Theme;
-pub use theme::GRUVBOX;
+pub use theme::CYBERPUNK as DEFAULT_THEME;
 
 pub fn render(
     f: &mut Frame,
@@ -32,37 +34,85 @@ pub fn render(
     volume: f32,
     track_start: Option<Instant>,
     track_duration: Option<Duration>,
-    _spectrum: &[f32],
+    spectrum: &[f32],
     search_query: &str,
 ) {
-    let theme = &GRUVBOX;
+    let theme = &DEFAULT_THEME;
 
-    f.render_widget(
-        Block::default().style(Style::default().bg(theme.bg_dark).fg(theme.fg)),
-        f.area(),
-    );
+    // Рендеринг фонового градиента
+    render_background(f, f.area(), theme);
 
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
+        .margin(1)
         .constraints([
-            Constraint::Length(1),  // tabs
-            Constraint::Length(3),  // now playing
-            Constraint::Length(1),  // progress
-            Constraint::Min(0),     // main area
-            Constraint::Length(1),  // status
+            Constraint::Length(3),  // header с tabs
+            Constraint::Length(5),  // now playing dashboard
+            Constraint::Length(3),  // progress bar с визуализацией
+            Constraint::Min(8),     // main area
+            Constraint::Length(3),  // status bar расширенный
         ])
         .split(f.area());
 
-    tabs::render(f, main_layout[0], mode, theme);
-    now_playing::render(f, main_layout[1], playlist, is_playing, has_sink, theme);
-    progress::render(f, main_layout[2], track_start, track_duration, is_playing, theme);
+    // Header с табами и заголовком
+    render_header(f, main_layout[0], mode, theme);
+    
+    // Dashboard "Now Playing"
+    now_playing::render_dashboard(f, main_layout[1], playlist, is_playing, has_sink, theme);
+    
+    // Progress bar с визуализацией спектра
+    progress::render_with_spectrum(f, main_layout[2], track_start, track_duration, is_playing, spectrum, theme);
+    
+    // Основная область
     render_main_area(f, main_layout[3], mode, browser, playlist, is_playing, search_query, theme);
-    status_bar::render(f, main_layout[4], playlist, volume, theme);
+    
+    // Расширенный status bar
+    status_bar::render_enhanced(f, main_layout[4], playlist, volume, theme);
+}
+
+fn render_background(f: &mut Frame, area: Rect, theme: &Theme) {
+    let bg_block = Block::default()
+        .style(Style::default().bg(theme.bg));
+    f.render_widget(bg_block, area);
+}
+
+fn render_header(f: &mut Frame, area: Rect, mode: &Mode, theme: &Theme) {
+    let title = Span::styled(
+        "🎵 TERMUSIC ",
+        Style::default()
+            .fg(theme.gradient_start)
+            .add_modifier(Modifier::BOLD),
+    );
+    
+    let subtitle = Span::styled(
+        format!("v{} | Modern Edition", env!("CARGO_PKG_VERSION")),
+        Style::default().fg(theme.fg_dim),
+    );
+    
+    let header_text = Line::from(vec![title, subtitle]);
+    
+    let header_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme.gradient_start))
+        .border_set(border::ROUNDED)
+        .title(header_text)
+        .style(Style::default().bg(theme.bg_dark));
+    
+    f.render_widget(header_block, area);
+    
+    // Рендерим табы внутри header
+    let tabs_area = Rect::new(
+        area.x + 2,
+        area.y + 1,
+        area.width.saturating_sub(4),
+        1,
+    );
+    tabs::render_modern(f, tabs_area, mode, theme);
 }
 
 fn render_main_area(
     f: &mut Frame,
-    area: ratatui::layout::Rect,
+    area: Rect,
     mode: &Mode,
     browser: &FileBrowser,
     playlist: &Playlist,
@@ -71,15 +121,18 @@ fn render_main_area(
     theme: &Theme,
 ) {
     if *mode == Mode::Search {
-        search::render(f, area, search_query, theme);
+        search::render_enhanced(f, area, search_query, theme);
         return;
     }
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([
+            Constraint::Percentage(45),
+            Constraint::Percentage(55),
+        ])
         .split(area);
 
-    browser_panel::render(f, chunks[0], browser, *mode == Mode::Browser, theme);
-    playlist_panel::render(f, chunks[1], playlist, *mode == Mode::Playlist, is_playing, theme);
+    browser_panel::render_enhanced(f, chunks[0], browser, *mode == Mode::Browser, theme);
+    playlist_panel::render_enhanced(f, chunks[1], playlist, *mode == Mode::Playlist, is_playing, theme);
 }

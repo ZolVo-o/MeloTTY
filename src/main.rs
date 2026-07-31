@@ -104,6 +104,8 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
                         KeyCode::Char('1') => { app.set_volume_preset(0.1); continue; }
                         KeyCode::Char('5') => { app.set_volume_preset(0.5); continue; }
                         KeyCode::Char('0') => { app.set_volume_preset(1.0); continue; }
+                        KeyCode::Char('f') => { app.toggle_shuffle(); continue; }
+                        KeyCode::Char('r') => { app.cycle_repeat(); continue; }
                         _ => handle_key(key.code, app)?,
                     }
                 }
@@ -141,6 +143,8 @@ fn handle_browser_keys(key: KeyCode, app: &mut App) -> anyhow::Result<()> {
     match key {
         KeyCode::Up | KeyCode::Char('k') => app.browser.navigate_up(),
         KeyCode::Down | KeyCode::Char('j') => app.browser.navigate_down(),
+        KeyCode::Home | KeyCode::Char('g') => app.browser.navigate_to_top(),
+        KeyCode::End | KeyCode::Char('G') => app.browser.navigate_to_bottom(),
         KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
             if let Some(path) = app.browser.selected_path().cloned() {
                 if path.is_dir() {
@@ -167,6 +171,14 @@ fn handle_playlist_keys(key: KeyCode, app: &mut App) -> anyhow::Result<()> {
         KeyCode::Down | KeyCode::Char('j') => {
             if app.playlist.current_index() + 1 < app.playlist.len() {
                 app.playlist.select(app.playlist.current_index() + 1);
+            }
+        }
+        KeyCode::Home => {
+            app.playlist.select(0);
+        }
+        KeyCode::End => {
+            if !app.playlist.is_empty() {
+                app.playlist.select(app.playlist.len() - 1);
             }
         }
         KeyCode::Enter => app.play_track()?,
