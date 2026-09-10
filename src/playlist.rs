@@ -89,15 +89,12 @@ impl Playlist {
                 .unwrap()
                 .subsec_nanos();
             self.current_index = (nanos as usize) % self.tracks.len();
-        } else {
+        } else if self.current_index + 1 < self.tracks.len() {
             self.current_index += 1;
-            if self.current_index >= self.tracks.len() {
-                self.current_index = if self.repeat == RepeatMode::All {
-                    0
-                } else {
-                    self.tracks.len() - 1
-                };
-            }
+        } else if self.repeat == RepeatMode::All {
+            self.current_index = 0;
+        } else {
+            return None;
         }
 
         Some(self.current_index)
@@ -161,14 +158,14 @@ impl Playlist {
 
         let content = fs::read_to_string(path)?;
         self.tracks.clear();
-        
+
         for line in content.lines() {
             let track_path = PathBuf::from(line);
             if track_path.exists() && is_audio_file(&track_path) {
                 self.tracks.push(track_path);
             }
         }
-        
+
         Ok(())
     }
 }
@@ -180,5 +177,51 @@ pub fn is_audio_file(path: &Path) -> bool {
             "mp3" | "wav" | "flac" | "ogg" | "aac" | "m4a" | "opus" | "wma"
         ),
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Playlist, RepeatMode};
+    use std::path::PathBuf;
+
+    fn playlist() -> Playlist {
+        let mut playlist = Playlist::new();
+        playlist.add_track(PathBuf::from("one.mp3"));
+        playlist.add_track(PathBuf::from("two.flac"));
+        playlist
+    }
+
+    #[test]
+    fn next_stops_at_last_track_without_repeat() {
+        let mut playlist = playlist();
+
+        assert_eq!(playlist.next(), Some(1));
+        assert_eq!(playlist.next(), None);
+        assert_eq!(playlist.current_index(), 1);
+    }
+
+    #[test]
+    fn repeat_all_wraps_to_first_track() {
+        let mut playlist = playlist();
+        playlist.repeat = RepeatMode::All;
+        playlist.select(1);
+
+        assert_eq!(playlist.next(), Some(0));
+    }
+
+    #[test]
+    fn duplicate_tracks_are_ignored() {
+        let mut playlist = Playlist::new();
+        playlist.add_track(PathBuf::from("track.mp3"));
+        playlist.add_track(PathBuf::from("track.mp3"));
+
+        assert_eq!(playlist.len(), 1);
+    }
+
+    #[test]
+    fn audio_extensions_are_case_insensitive() {
+        assert!(super::is_audio_file(std::path::Path::new("TRACK.MP3")));
+        assert!(!super::is_audio_file(std::path::Path::new("cover.jpg")));
     }
 }

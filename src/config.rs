@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct Config {
     pub start_dir: Option<String>,
     pub default_volume: f32,
@@ -20,7 +21,7 @@ impl Default for Config {
 impl Config {
     pub fn load() -> Self {
         let config_path = get_config_path();
-        
+
         if !config_path.exists() {
             let config = Config::default();
             config.save();
@@ -49,7 +50,9 @@ impl Config {
             let value = parts[1].trim();
 
             match key {
-                "start_dir" => config.start_dir = Some(value.to_string()),
+                "start_dir" => {
+                    config.start_dir = (!value.is_empty()).then(|| value.to_string());
+                }
                 "default_volume" => {
                     if let Ok(vol) = value.parse::<f32>() {
                         config.default_volume = vol.clamp(0.0, 1.0);
@@ -67,9 +70,13 @@ impl Config {
 
     pub fn save(&self) {
         let config_path = get_config_path();
-        
+
+        if let Some(parent) = config_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
         let content = format!(
-            r#"# termvibes configuration file
+            r#"# MeloTTY configuration file
 # Edit this file to customize the player
 
 # Start directory on launch (leave empty for auto-detect)
@@ -86,11 +93,11 @@ show_hidden_files = {}
             self.show_hidden_files,
         );
 
-        fs::write(config_path, content).ok();
+        let _ = fs::write(config_path, content);
     }
 }
 
 fn get_config_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".config/termvibes.conf")
+    PathBuf::from(home).join(".config/melotty.conf")
 }

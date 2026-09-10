@@ -1,13 +1,15 @@
 mod app;
+mod ascii_art;
 mod audio;
 mod browser;
 mod config;
+mod cover;
 mod error;
 mod help;
 mod playlist;
 mod ui;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use clap::Parser;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -16,14 +18,14 @@ use crossterm::{
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use std::io;
+use std::io::{self, IsTerminal};
 use std::time::Duration;
 
-use crate::app::{App, Mode};
+use crate::app::{App, Mode, Page};
 
 #[derive(Parser)]
-#[command(name = "termusic")]
-#[command(about = "High-quality terminal music player")]
+#[command(name = "melotty")]
+#[command(about = "A focused terminal music player with album art")]
 struct Cli {
     path: Option<String>,
 }
@@ -32,25 +34,67 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = config::Config::load();
 
-    enable_raw_mode().context("Failed to enable raw mode")?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        bail!(
+            "melotty requires an interactive terminal. Run it from a real terminal, for example: cargo run -- ~/Music"
+        );
+    }
 
-    let start_path = cli.path.or(config.start_dir);
-    let mut app = App::new(start_path)?;
+    let mut terminal = TerminalSession::start()?;
+
+    let start_path = cli.path.clone().or(config.start_dir.clone());
+    let mut app = App::new(start_path, config.clone())?;
     app.set_volume(config.default_volume);
 
-    let result = run(&mut terminal, &mut app);
+    let run_result = run(terminal.terminal_mut(), &mut app);
+    let save_result = app.save_playlist().context("failed to save playlist");
 
-    app.save_playlist();
+    run_result.and(save_result)
+}
 
-    disable_raw_mode().ok();
-    execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
-    terminal.show_cursor().ok();
+struct TerminalSession {
+    terminal: Terminal<CrosstermBackend<io::Stdout>>,
+}
 
-    result
+impl TerminalSession {
+    fn start() -> anyhow::Result<Self> {
+        enable_raw_mode().context("failed to enable raw mode")?;
+        let mut stdout = io::stdout();
+
+        if let Err(error) = execute!(stdout, EnterAlternateScreen) {
+            disable_raw_mode().ok();
+            return Err(error.into());
+        }
+
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = match Terminal::new(backend) {
+            Ok(terminal) => terminal,
+            Err(error) => {
+                disable_raw_mode().ok();
+                return Err(error.into());
+            }
+        };
+
+        if let Err(error) = terminal.hide_cursor() {
+            disable_raw_mode().ok();
+            execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
+            return Err(error.into());
+        }
+
+        Ok(Self { terminal })
+    }
+
+    fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
+        &mut self.terminal
+    }
+}
+
+impl Drop for TerminalSession {
+    fn drop(&mut self) {
+        disable_raw_mode().ok();
+        execute!(self.terminal.backend_mut(), LeaveAlternateScreen).ok();
+        self.terminal.show_cursor().ok();
+    }
 }
 
 fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> anyhow::Result<()> {
@@ -63,11 +107,22 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
             terminal.draw(|f| help::render_help(f))?;
         } else {
             let search = app.search_query.clone();
+            let cover = app.cover_ascii.clone();
             terminal.draw(|f| {
                 ui::render(
-                    f, &app.mode, &app.browser, &app.playlist,
-                    app.is_playing, app.audio.has_sink(), app.audio.volume(),
-                    app.track_start, app.track_duration, &app.spectrum, &search,
+                    f,
+                    &app.mode,
+                    app.page,
+                    &app.browser,
+                    &app.playlist,
+                    app.is_playing,
+                    app.audio.has_sink(),
+                    app.audio.volume(),
+                    app.audio.position(),
+                    app.track_duration,
+                    &app.spectrum,
+                    &search,
+                    &cover,
                 )
             })?;
         }
@@ -81,7 +136,9 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
                 if key.kind == KeyEventKind::Press {
                     if show_help {
                         match key.code {
-                            KeyCode::Char('h') | KeyCode::Char('q') | KeyCode::Esc => show_help = false,
+                            KeyCode::Char('h') | KeyCode::Char('q') | KeyCode::Esc => {
+                                show_help = false
+                            }
                             _ => {}
                         }
                         continue;
@@ -99,11 +156,42 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
                     }
 
                     match key.code {
-                        KeyCode::Char('h') => { show_help = true; continue; }
-                        KeyCode::Char('/') => { app.start_search(); continue; }
-                        KeyCode::Char('1') => { app.set_volume_preset(0.1); continue; }
-                        KeyCode::Char('5') => { app.set_volume_preset(0.5); continue; }
-                        KeyCode::Char('0') => { app.set_volume_preset(1.0); continue; }
+                        KeyCode::Char('h') => {
+                            show_help = true;
+                            continue;
+                        }
+                        KeyCode::Char('o') => {
+                            app.open_settings();
+                            continue;
+                        }
+                        KeyCode::Char('1') => {
+                            app.open_page(Page::Library);
+                            continue;
+                        }
+                        KeyCode::Char('2') => {
+                            app.open_page(Page::Queue);
+                            continue;
+                        }
+                        KeyCode::Char('3') => {
+                            app.open_page(Page::NowPlaying);
+                            continue;
+                        }
+                        KeyCode::Char('4') => {
+                            app.open_page(Page::Settings);
+                            continue;
+                        }
+                        KeyCode::Char('/') => {
+                            app.start_search();
+                            continue;
+                        }
+                        KeyCode::Char('5') => {
+                            app.set_volume_preset(0.5);
+                            continue;
+                        }
+                        KeyCode::Char('0') => {
+                            app.set_volume_preset(1.0);
+                            continue;
+                        }
                         _ => handle_key(key.code, app)?,
                     }
                 }
@@ -116,25 +204,63 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
 
 fn handle_key(key: KeyCode, app: &mut App) -> anyhow::Result<()> {
     match key {
-        KeyCode::Char('q') => { app.should_quit = true; return Ok(()); }
-        KeyCode::Tab => { app.toggle_mode(); return Ok(()); }
-        KeyCode::Char(' ') => { app.toggle_playback()?; return Ok(()); }
-        KeyCode::Char('n') => { app.next_track()?; return Ok(()); }
-        KeyCode::Char('p') => { app.prev_track()?; return Ok(()); }
-        KeyCode::Char('+') | KeyCode::Char('=') => { app.volume_up(); return Ok(()); }
-        KeyCode::Char('-') => { app.volume_down(); return Ok(()); }
-        KeyCode::Char('s') => { app.toggle_shuffle(); return Ok(()); }
-        KeyCode::Char('r') => { app.cycle_repeat(); return Ok(()); }
+        KeyCode::Char('q') => {
+            app.should_quit = true;
+            return Ok(());
+        }
+        KeyCode::Tab => {
+            app.toggle_mode();
+            return Ok(());
+        }
+        KeyCode::Char(' ') => {
+            app.toggle_playback()?;
+            return Ok(());
+        }
+        KeyCode::Char('n') => {
+            app.next_track()?;
+            return Ok(());
+        }
+        KeyCode::Char('p') => {
+            app.prev_track()?;
+            return Ok(());
+        }
+        KeyCode::Char('+') | KeyCode::Char('=') => {
+            app.volume_up();
+            return Ok(());
+        }
+        KeyCode::Char('-') => {
+            app.volume_down();
+            return Ok(());
+        }
+        KeyCode::Char('s') => {
+            app.toggle_shuffle();
+            return Ok(());
+        }
+        KeyCode::Char('r') => {
+            app.cycle_repeat();
+            return Ok(());
+        }
         _ => {}
     }
 
     match app.mode {
         Mode::Browser => handle_browser_keys(key, app)?,
         Mode::Playlist => handle_playlist_keys(key, app)?,
+        Mode::Settings => handle_settings_keys(key, app),
         _ => {}
     }
 
     Ok(())
+}
+
+fn handle_settings_keys(key: KeyCode, app: &mut App) {
+    match key {
+        KeyCode::Esc | KeyCode::Char('b') => app.open_page(Page::Library),
+        KeyCode::Char('h') => app.toggle_hidden_files(),
+        KeyCode::Char('+') | KeyCode::Char('=') => app.volume_up(),
+        KeyCode::Char('-') => app.volume_down(),
+        _ => {}
+    }
 }
 
 fn handle_browser_keys(key: KeyCode, app: &mut App) -> anyhow::Result<()> {

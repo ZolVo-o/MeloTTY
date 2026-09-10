@@ -1,8 +1,10 @@
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::audio::AudioEngine;
 use crate::browser::FileBrowser;
+use crate::config::Config;
+use crate::cover;
 use crate::error::Result;
 use crate::playlist::{Playlist, RepeatMode};
 
@@ -11,6 +13,15 @@ pub enum Mode {
     Browser,
     Playlist,
     Search,
+    Settings,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Page {
+    Library,
+    Queue,
+    NowPlaying,
+    Settings,
 }
 
 pub struct App {
@@ -18,19 +29,21 @@ pub struct App {
     pub playlist: Playlist,
     pub audio: AudioEngine,
     pub mode: Mode,
+    pub page: Page,
     pub is_playing: bool,
-    pub track_start: Option<Instant>,
     pub track_duration: Option<Duration>,
     pub should_quit: bool,
     pub search_query: String,
     pub spectrum: Vec<f32>,
+    pub cover_ascii: Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    pub config: Config,
     playlist_path: PathBuf,
 }
 
 impl App {
-    pub fn new(start_path: Option<String>) -> Result<Self> {
+    pub fn new(start_path: Option<String>, config: Config) -> Result<Self> {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        let playlist_path = PathBuf::from(&home).join(".termvibes_playlist.m3u");
+        let playlist_path = PathBuf::from(&home).join(".melotty_playlist.m3u");
 
         let start_dir = if let Some(p) = start_path {
             let path = PathBuf::from(p);
@@ -38,7 +51,9 @@ impl App {
                 if path.is_dir() {
                     path
                 } else {
-                    path.parent().unwrap_or(std::path::Path::new(&home)).to_path_buf()
+                    path.parent()
+                        .unwrap_or(std::path::Path::new(&home))
+                        .to_path_buf()
                 }
             } else {
                 PathBuf::from(&home)
@@ -48,16 +63,18 @@ impl App {
         };
 
         let mut app = App {
-            browser: FileBrowser::new(start_dir),
+            browser: FileBrowser::new(start_dir, config.show_hidden_files),
             playlist: Playlist::new(),
             audio: AudioEngine::new()?,
             mode: Mode::Browser,
+            page: Page::Library,
             is_playing: false,
-            track_start: None,
             track_duration: None,
             should_quit: false,
             search_query: String::new(),
             spectrum: vec![0.0; 32],
+            cover_ascii: None,
+            config,
             playlist_path,
         };
 
@@ -67,18 +84,30 @@ impl App {
 
     pub fn set_volume(&mut self, volume: f32) {
         self.audio.set_volume(volume);
+        self.config.default_volume = self.audio.volume();
+        self.config.save();
     }
 
     pub fn set_volume_preset(&mut self, preset: f32) {
-        self.audio.set_volume(preset);
+        self.set_volume(preset);
     }
 
-    pub fn save_playlist(&self) {
-        self.playlist.save_to_file(&self.playlist_path).ok();
+    pub fn save_playlist(&self) -> Result<()> {
+        self.playlist.save_to_file(&self.playlist_path)?;
+        Ok(())
     }
 
     fn load_playlist(&mut self) {
         self.playlist.load_from_file(&self.playlist_path).ok();
+    }
+
+    fn load_cover(&mut self) {
+        self.cover_ascii = None;
+        if let Some(path) = self.playlist.current_track() {
+            if let Ok(Some(img)) = cover::extract_cover(path) {
+                self.cover_ascii = Some(crate::ascii_art::image_to_ascii(&img, 20, 6));
+            }
+        }
     }
 
     pub fn toggle_mode(&mut self) {
@@ -91,6 +120,27 @@ impl App {
             Mode::Playlist => Mode::Browser,
             _ => Mode::Browser,
         };
+    }
+
+    pub fn open_settings(&mut self) {
+        self.page = Page::Settings;
+        self.mode = Mode::Settings;
+    }
+
+    pub fn open_page(&mut self, page: Page) {
+        self.page = page;
+        self.mode = match page {
+            Page::Library => Mode::Browser,
+            Page::Queue => Mode::Playlist,
+            Page::NowPlaying => Mode::Browser,
+            Page::Settings => Mode::Settings,
+        };
+    }
+
+    pub fn toggle_hidden_files(&mut self) {
+        self.browser.toggle_hidden_files();
+        self.config.show_hidden_files = self.browser.hidden_files_enabled();
+        self.config.save();
     }
 
     pub fn start_search(&mut self) {
@@ -131,7 +181,12 @@ impl App {
         if let Some(path) = self.browser.selected_path() {
             if !path.is_dir() {
                 self.playlist.add_track(path.clone());
-                let idx = self.playlist.tracks().iter().position(|p| p == path).unwrap_or(0);
+                let idx = self
+                    .playlist
+                    .tracks()
+                    .iter()
+                    .position(|p| p == path)
+                    .unwrap_or(0);
                 self.playlist.select(idx);
                 return self.play_track();
             }
@@ -143,8 +198,8 @@ impl App {
         if let Some(path) = self.playlist.current_track() {
             let duration = self.audio.play_file(path)?;
             self.is_playing = true;
-            self.track_start = Some(Instant::now());
             self.track_duration = duration;
+            self.load_cover();
         }
         Ok(())
     }
@@ -160,7 +215,6 @@ impl App {
         } else {
             self.audio.resume();
             self.is_playing = true;
-            self.track_start = Some(Instant::now());
         }
         Ok(())
     }
@@ -192,12 +246,21 @@ impl App {
 
     pub fn remove_current_track(&mut self) {
         let idx = self.playlist.current_index();
+        let was_playing = self.is_playing || self.audio.has_sink();
         self.playlist.remove_track(idx);
+
+        if was_playing {
+            self.audio.stop();
+            self.is_playing = false;
+            self.track_duration = None;
+            self.cover_ascii = None;
+        }
     }
 
     pub fn clear_playlist(&mut self) {
         self.audio.stop();
         self.is_playing = false;
+        self.track_duration = None;
         self.playlist.clear();
     }
 
@@ -225,8 +288,8 @@ impl App {
 
     pub fn update(&mut self) {
         if self.is_playing {
-            if let (Some(start), Some(duration)) = (self.track_start, self.track_duration) {
-                if start.elapsed() >= duration {
+            if let Some(duration) = self.track_duration {
+                if self.audio.position() >= duration {
                     if self.playlist.repeat == RepeatMode::One {
                         self.play_track().ok();
                     } else {

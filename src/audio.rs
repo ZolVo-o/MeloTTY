@@ -25,15 +25,15 @@ impl AudioEngine {
 
     pub fn play_file(&mut self, path: &Path) -> Result<Option<Duration>> {
         self.stop();
-        
+
         let file = File::open(path)?;
         let source = Decoder::new(file)?;
         let duration = source.total_duration();
-        
+
         let sink = Sink::try_new(self.handle.as_ref().unwrap())?;
         sink.set_volume(self.volume);
         sink.append(source);
-        
+
         self.sink = Some(sink);
         Ok(duration)
     }
@@ -67,8 +67,8 @@ impl AudioEngine {
         self.volume
     }
 
-    pub fn is_playing(&self) -> bool {
-        self.sink.as_ref().map_or(false, |s| !s.is_paused())
+    pub fn position(&self) -> Duration {
+        self.sink.as_ref().map(Sink::get_pos).unwrap_or_default()
     }
 
     pub fn has_sink(&self) -> bool {

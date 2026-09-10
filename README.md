@@ -1,145 +1,135 @@
-# 🎵 termvibes
+# MeloTTY
 
-![Rust](https://img.shields.io/badge/rust-1.96+-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platform](https://img.shields.io/badge/platform-linux%20%7C%20arch-brightgreen.svg)
+MeloTTY is a focused terminal music player written in Rust. It provides a
+keyboard-driven interface with separate Library, Queue, Now Playing, and
+Settings pages, embedded album-art support, and a compact layout for narrow
+terminals.
 
-**termvibes** — высококачественный консольный аудиоплеер для Linux, написанный на Rust. Работает в любом терминале, включая TTY, и не требует X-сервера или Wayland.
+## Features
 
-## ✨ Возможности
+- MP3, FLAC, WAV, OGG, AAC, M4A, Opus, and other formats supported by Rodio
+- Embedded and sidecar album artwork (`cover.jpg`, `folder.png`, and similar)
+- Separate pages opened with `1`–`4`
+- Search, queue management, shuffle, and repeat modes
+- Persistent playlist and configuration
+- Catppuccin-inspired TUI with responsive narrow-terminal layout
+- Pure terminal interface; no graphical desktop required
 
-- 🎧 **Поддержка форматов**: MP3, FLAC, WAV, OGG, AAC, M4A, Opus, WMA
-- 🖥 **Работа в TTY**: в голой консоли без графического сервера
-- 📁 **Файловый браузер** с закладками и поиском
-- 🎵 **Умный плейлист** с автосохранением
-- 🔀 **Режимы воспроизведения**: перемешивание, повтор одного/всех
-- 🎨 **Современный TUI**: темы, иконки, прогресс-бар
-- ⚡ **Мгновенный запуск**: скомпилирован в нативный бинарник
-- 🔍 **Поиск** по файлам (`/`)
-- ⌨ **Vim-подобное управление**: `h/j/k/l`, `/`, цифры
-- 💾 **Лёгкий**: 5-10 МБ памяти
+## Requirements
 
-## 📦 Установка
+- Rust stable toolchain
+- ALSA development libraries on Linux
+- A real interactive terminal
 
-### Arch Linux (AUR)
+On Arch Linux:
 
 ```bash
-yay -S termvibes-git
-
-Из исходников
-bash
-
-git clone https://github.com/ZolVo-o/termvibes.git
-cd termvibes
-cargo build --release
-sudo cp target/release/termvibes /usr/local/bin/
-
-Зависимости
-bash
-
-# Arch Linux
 sudo pacman -S rustup alsa-lib
-rustup default stable
+```
 
-🚀 Использование
-bash
+## Build and install
 
-termvibes                  # запуск (откроет домашнюю папку)
-termvibes ~/Music          # указать папку
-termvibes track.mp3        # указать файл
-termvibes --help           # справка по аргументам
+```bash
+git clone <your-melotty-repository-url>
+cd melotty
+cargo build --release
+sudo install -Dm755 target/release/melotty /usr/local/bin/melotty
+```
 
-🎮 Управление
-Глобальные клавиши
-Клавиша	Действие
-Tab	Переключение браузер / плейлист
-Space	Play / Pause
-N / P	Следующий / Предыдущий трек
-S	Перемешивание
-R	Режим повтора (Выкл → Все → Один)
-+ / -	Громкость
-1 / 5 / 0	Громкость 10% / 50% / 100%
-/	Поиск файла
-H	Справка
-Q	Выход
-Браузер
-Клавиша	Действие
-↑↓ / J/K	Навигация
-Enter / → / L	Войти в папку / играть файл
-Backspace / ← / H	Назад
-A	Добавить в плейлист
-Плейлист
-Клавиша	Действие
-↑↓ / J/K	Навигация по трекам
-Enter	Играть выбранный
-D	Удалить трек
-C	Очистить всё
-⚙️ Конфигурация
+Optional Nerd Font symbols:
 
-Файл ~/.config/termvibes.conf:
-ini
+```bash
+sudo pacman -S ttf-nerd-fonts-symbols
+```
 
-# Стартовая директория (пусто = авто)
-start_dir = 
+## Usage
 
-# Громкость по умолчанию (0.0 - 1.0)
+```bash
+melotty
+melotty ~/Music
+melotty ~/Music/song.mp3
+melotty --help
+```
+
+## Controls
+
+### Pages
+
+| Key | Action |
+| --- | --- |
+| `1` | Library |
+| `2` | Queue |
+| `3` | Now Playing |
+| `4` or `O` | Settings |
+| `Esc` / `B` | Return to Library from Settings |
+
+### Playback
+
+| Key | Action |
+| --- | --- |
+| `Space` | Play / pause |
+| `N` / `P` | Next / previous track |
+| `+` / `-` | Increase / decrease volume |
+| `5` / `0` | Set volume to 50% / 100% |
+| `S` | Toggle shuffle |
+| `R` | Cycle repeat mode |
+| `/` | Search |
+| `H` | Open help |
+| `Q` | Quit |
+
+### Library and Queue
+
+| Key | Action |
+| --- | --- |
+| `Up` / `Down`, `J` / `K` | Navigate |
+| `Enter` / `Right` / `L` | Open directory or play track |
+| `Backspace` / `Left` | Go to parent directory |
+| `A` | Add selected item to the queue |
+| `D` | Remove the selected queue item |
+| `C` | Clear the queue |
+| `Tab` | Switch Library / Queue focus |
+
+## Configuration
+
+MeloTTY stores its configuration at `~/.config/melotty.conf`:
+
+```ini
+start_dir =
 default_volume = 0.7
-
-# Показывать скрытые файлы
 show_hidden_files = false
+```
 
-🏗 Структура проекта
-text
+The playlist is saved at `~/.melotty_playlist.m3u`.
 
+## Project layout
+
+```text
 src/
-├── main.rs          # точка входа, обработка клавиш
-├── app.rs           # логика приложения
-├── audio.rs         # движок воспроизведения (rodio)
-├── browser.rs       # файловый браузер
-├── playlist.rs      # управление плейлистом
-├── config.rs        # конфигурация
-├── error.rs         # типы ошибок
-├── help.rs          # экран справки
-└── ui/              # интерфейс
-    ├── mod.rs       # главный layout
-    ├── theme.rs     # цветовые схемы
-    ├── tabs.rs      # вкладки браузер/плейлист
-    ├── now_playing.rs
-    ├── progress.rs
-    ├── browser_panel.rs
-    ├── playlist_panel.rs
-    ├── search.rs
-    └── status_bar.rs
+├── main.rs       # CLI, terminal session, and keyboard handling
+├── app.rs        # Application state and playback actions
+├── audio.rs      # Rodio audio engine
+├── browser.rs    # File browser
+├── playlist.rs   # Queue management
+├── config.rs     # Persistent settings
+├── cover.rs      # Embedded and sidecar artwork loading
+├── ascii_art.rs  # Terminal artwork conversion
+└── ui/           # Pages, widgets, theme, progress, and search
+```
 
-🔧 Технологии
+## Development
 
-    Rust — язык
+```bash
+cargo fmt
+cargo test
+cargo check
+```
 
-    rodio — воспроизведение аудио
+## Contributing
 
-    ratatui — терминальный UI
+Bug reports, improvements, and pull requests are welcome. Please keep changes
+focused and run the formatting, test, and check commands before submitting a
+pull request.
 
-    crossterm — управление терминалом
+## License
 
-    clap — парсинг аргументов
-
-📝 TODO
-
-    Пакет для AUR
-
-    Поддержка MPRIS (управление с телефона)
-
-    Эквалайзер
-
-    Last.fm скробблинг
-
-    Интернет-радио
-
-    Vim-подобные команды (:q, :play, etc)
-
-🤝 Участие
-
-Pull request'ы приветствуются! Для серьёзных изменений — сначала откройте issue.
-📄 Лицензия
-
-MIT © 2026 ZolVo-o
+MeloTTY is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).

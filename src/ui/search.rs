@@ -16,13 +16,12 @@ pub fn render(f: &mut Frame, area: Rect, query: &str, theme: &Theme) {
         .title("🔍 Search")
         .style(Style::default().bg(theme.bg));
 
-    let text = format!(
-        "\n  Search: {}_\n\n  Enter — confirm, Esc — cancel",
-        query
-    );
+    let text = format!("\n  Search: {}_\n\n  Enter — confirm, Esc — cancel", query);
 
     f.render_widget(
-        Paragraph::new(text).block(block).style(Style::default().fg(theme.fg)),
+        Paragraph::new(text)
+            .block(block)
+            .style(Style::default().fg(theme.fg)),
         area,
     );
 }

@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::playlist::is_audio_file;
 
@@ -9,35 +9,38 @@ pub struct FileBrowser {
     selected: usize,
     scroll: usize,
     bookmarks: Vec<PathBuf>,
+    show_hidden_files: bool,
 }
 
 impl FileBrowser {
-    pub fn new(start_dir: PathBuf) -> Self {
+    pub fn new(start_dir: PathBuf, show_hidden_files: bool) -> Self {
         let mut bookmarks = Vec::new();
-        
+
         // Добавляем стандартные закладки
         if let Ok(home) = std::env::var("HOME") {
             let home_path = PathBuf::from(&home);
             bookmarks.push(home_path.clone());
-            
+
             // Проверяем популярные музыкальные папки
-            for music_dir in &["Музыка", "Music", "Загрузки", "Downloads", "Documents"] {
+            for music_dir in &["Музыка", "Music", "Загрузки", "Downloads", "Documents"]
+            {
                 let path = home_path.join(music_dir);
                 if path.exists() {
                     bookmarks.push(path);
                 }
             }
         }
-        
+
         // Добавляем корень для навигации по всей системе
         bookmarks.push(PathBuf::from("/"));
-        
+
         let mut browser = FileBrowser {
             current_dir: start_dir,
             entries: Vec::new(),
             selected: 0,
             scroll: 0,
             bookmarks,
+            show_hidden_files,
         };
         browser.refresh();
         browser
@@ -45,12 +48,12 @@ impl FileBrowser {
 
     pub fn refresh(&mut self) {
         self.entries.clear();
-        
+
         // Всегда показываем закладки в начале
         self.entries.push(PathBuf::from("─── ЗАКЛАДКИ ───"));
         self.entries.extend(self.bookmarks.clone());
         self.entries.push(PathBuf::from("─── СОДЕРЖИМОЕ ───"));
-        
+
         // Добавляем родительскую папку
         if let Some(parent) = self.current_dir.parent() {
             self.entries.push(parent.to_path_buf());
@@ -63,15 +66,15 @@ impl FileBrowser {
 
             for entry in entries.flatten() {
                 let path = entry.path();
-                let name = path.file_name()
+                let name = path
+                    .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
-                
-                // Пропускаем скрытые папки
-                if name.starts_with('.') {
+
+                if !self.show_hidden_files && name.starts_with('.') {
                     continue;
                 }
-                
+
                 if path.is_dir() {
                     dirs.push(path);
                 } else if is_audio_file(&path) {
@@ -84,23 +87,27 @@ impl FileBrowser {
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_lowercase()
-                    .cmp(&b.file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_lowercase())
+                    .cmp(
+                        &b.file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_lowercase(),
+                    )
             });
-            
+
             files.sort_by(|a, b| {
                 a.file_name()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_lowercase()
-                    .cmp(&b.file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_lowercase())
+                    .cmp(
+                        &b.file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_lowercase(),
+                    )
             });
-            
+
             self.entries.extend(dirs);
             self.entries.extend(files);
         }
@@ -116,10 +123,11 @@ impl FileBrowser {
 
         let query = query.to_lowercase();
         for (i, path) in self.entries.iter().enumerate() {
-            let name = path.file_name()
+            let name = path
+                .file_name()
                 .map(|n| n.to_string_lossy().to_lowercase())
                 .unwrap_or_default();
-            
+
             if name.contains(&query) {
                 self.selected = i;
                 self.scroll = i.saturating_sub(7);
@@ -154,7 +162,7 @@ impl FileBrowser {
                 self.refresh();
                 return;
             }
-            
+
             // Проверяем родительскую папку
             if let Some(parent) = self.current_dir.parent() {
                 if path == parent {
@@ -163,7 +171,7 @@ impl FileBrowser {
                     return;
                 }
             }
-            
+
             // Обычная папка
             if path.is_dir() {
                 self.current_dir = path;
@@ -177,10 +185,6 @@ impl FileBrowser {
             self.current_dir = parent.to_path_buf();
             self.refresh();
         }
-    }
-
-    pub fn current_dir(&self) -> &Path {
-        &self.current_dir
     }
 
     pub fn entries(&self) -> &Vec<PathBuf> {
@@ -197,5 +201,14 @@ impl FileBrowser {
 
     pub fn selected_path(&self) -> Option<&PathBuf> {
         self.entries.get(self.selected)
+    }
+
+    pub fn hidden_files_enabled(&self) -> bool {
+        self.show_hidden_files
+    }
+
+    pub fn toggle_hidden_files(&mut self) {
+        self.show_hidden_files = !self.show_hidden_files;
+        self.refresh();
     }
 }
