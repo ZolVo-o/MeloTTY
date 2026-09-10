@@ -230,7 +230,6 @@ impl App {
             // End of playlist (no repeat all)
             self.is_playing = false;
             self.audio.stop();
-            self.track_start = None;
         }
         Ok(())
     }
@@ -238,15 +237,6 @@ impl App {
     pub fn prev_track(&mut self) -> Result<()> {
         if self.playlist.is_empty() {
             return Ok(());
-        }
-
-        // If more than 3 seconds into the track, restart it
-        if let (Some(start), Some(_)) = (self.track_start, self.track_duration) {
-            if start.elapsed().as_secs() > 3 {
-                self.track_start = Some(Instant::now());
-                self.audio.stop();
-                return self.play_track();
-            }
         }
 
         if let Some(_) = self.playlist.previous() {
@@ -277,11 +267,6 @@ impl App {
 
     pub fn toggle_shuffle(&mut self) {
         self.playlist.shuffle = !self.playlist.shuffle;
-        if self.playlist.shuffle {
-            self.playlist.shuffle_playlist();
-        } else {
-            self.playlist.sort_playlist();
-        }
     }
 
     pub fn cycle_repeat(&mut self) {
