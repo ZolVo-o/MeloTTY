@@ -1,7 +1,1 @@
-/target
-/.idea
-*.swp
-*.swo
-*~
-.DS_Store
-*.m3u
+(src/ui/playlist_panel.rs, src/ui/progress.rs)
