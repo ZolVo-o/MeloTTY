@@ -21,32 +21,10 @@ pub fn image_to_ascii(img: &DynamicImage, width: u32, height: u32) -> Vec<(Strin
                 continue;
             }
 
-            let brightness =
-                (0.299 * rgba[0] as f32 + 0.587 * rgba[1] as f32 + 0.114 * rgba[2] as f32) / 255.0;
-
-            let char = if brightness > 0.9 {
-                '█'
-            } else if brightness > 0.8 {
-                '▓'
-            } else if brightness > 0.7 {
-                '▒'
-            } else if brightness > 0.6 {
-                '░'
-            } else if brightness > 0.5 {
-                '▐'
-            } else if brightness > 0.4 {
-                '▌'
-            } else if brightness > 0.3 {
-                '▍'
-            } else if brightness > 0.2 {
-                '▎'
-            } else if brightness > 0.1 {
-                '▏'
-            } else {
-                ' '
-            };
-
-            line.push(char);
+            // Цвет каждого пикселя задаёт сам символ, поэтому используем плотный блок.
+            // Градиентные символы скрывали тёмные части изображения и делали обложку
+            // похожей на случайные вертикальные полосы.
+            line.push('█');
             colors.push(Color::Rgb(rgba[0], rgba[1], rgba[2]));
         }
 

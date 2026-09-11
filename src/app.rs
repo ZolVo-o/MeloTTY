@@ -105,7 +105,7 @@ impl App {
         self.cover_ascii = None;
         if let Some(path) = self.playlist.current_track() {
             if let Ok(Some(img)) = cover::extract_cover(path) {
-                self.cover_ascii = Some(crate::ascii_art::image_to_ascii(&img, 20, 6));
+                self.cover_ascii = Some(crate::ascii_art::image_to_ascii(&img, 32, 14));
             }
         }
     }
@@ -279,12 +279,12 @@ impl App {
 
     pub fn volume_up(&mut self) {
         let new_vol = (self.audio.volume() + 0.05).min(1.0);
-        self.audio.set_volume(new_vol);
+        self.set_volume(new_vol);
     }
 
     pub fn volume_down(&mut self) {
         let new_vol = (self.audio.volume() - 0.05).max(0.0);
-        self.audio.set_volume(new_vol);
+        self.set_volume(new_vol);
     }
 
     pub fn update(&mut self) {

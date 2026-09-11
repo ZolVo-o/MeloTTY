@@ -242,7 +242,10 @@ fn render_now_playing_page(
     let compact = area.width < 80 || area.height < 24;
     let hero = Rect {
         y: area.y + 2,
-        height: area.height.saturating_sub(if compact { 6 } else { 7 }),
+        height: area
+            .height
+            .saturating_sub(if compact { 6 } else { 7 })
+            .min(if compact { 10 } else { 18 }),
         ..area
     };
     render_hero(f, hero, playlist, is_playing, has_sink, cover, theme);
@@ -275,10 +278,8 @@ fn render_page_footer(f: &mut Frame, area: Rect, current: &str, theme: &Theme) {
     let text = if area.width < 72 {
         format!(" {} · O settings · Q quit", current)
     } else {
-        format!(
-            "  1 LIBRARY   2 QUEUE   3 NOW PLAYING   4 SETTINGS     {}     O settings · +/- volume · Q quit",
-            current,
-        )
+        "  1 LIBRARY   2 QUEUE   3 NOW PLAYING   4 SETTINGS     O settings · +/- volume · Q quit"
+            .to_string()
     };
     f.render_widget(
         Paragraph::new(text).style(Style::default().fg(theme.fg_dim).bg(theme.bg_dark)),
@@ -423,7 +424,7 @@ fn render_hero(
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let cover_width = if inner.width < 60 { 18 } else { 25 };
+    let cover_width = if inner.width < 60 { 18 } else { 36 };
     let columns =
         Layout::horizontal([Constraint::Length(cover_width), Constraint::Min(0)]).split(inner);
 
@@ -692,6 +693,23 @@ fn render_command_bar(
     } else {
         "LIBRARY"
     };
+    let shortcuts = if area.width < 110 {
+        "  1 LIB  2 QUEUE  3 PLAYING  4 SETTINGS  "
+    } else {
+        "  1 LIBRARY  2 QUEUE  3 NOW PLAYING  4 SETTINGS  "
+    };
+    let controls = if area.width < 110 {
+        format!(
+            "O settings  +/- volume  Q quit  VOL:{:02.0}%",
+            volume * 100.0
+        )
+    } else {
+        format!(
+            "O settings  SPACE play  N/P track  / search  S shuffle  R repeat:{}  VOL:{:02.0}%  Q quit",
+            repeat,
+            volume * 100.0
+        )
+    };
     let line = Line::from(vec![
         Span::styled(
             format!(" {} ", focus),
@@ -700,18 +718,8 @@ fn render_command_bar(
                 .bg(theme.accent)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            "  1 LIBRARY  2 QUEUE  3 NOW PLAYING  4 SETTINGS  ",
-            Style::default().fg(theme.fg_dim),
-        ),
-        Span::styled(
-            format!(
-                "O settings  SPACE play  N/P track  / search  S shuffle  R repeat:{}  VOL:{:02.0}%  Q quit",
-                repeat,
-                volume * 100.0
-            ),
-            Style::default().fg(theme.fg),
-        ),
+        Span::styled(shortcuts, Style::default().fg(theme.fg_dim)),
+        Span::styled(controls, Style::default().fg(theme.fg)),
     ]);
     f.render_widget(
         Paragraph::new(line).style(Style::default().bg(theme.bg_dark)),
