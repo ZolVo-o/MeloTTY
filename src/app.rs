@@ -35,7 +35,7 @@ pub struct App {
     pub should_quit: bool,
     pub search_query: String,
     pub spectrum: Vec<f32>,
-    pub cover_ascii: Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    pub cover_ascii: Option<crate::ascii_art::Artwork>,
     pub config: Config,
     playlist_path: PathBuf,
 }
@@ -105,7 +105,7 @@ impl App {
         self.cover_ascii = None;
         if let Some(path) = self.playlist.current_track() {
             if let Ok(Some(img)) = cover::extract_cover(path) {
-                self.cover_ascii = Some(crate::ascii_art::image_to_ascii(&img, 32, 14));
+                self.cover_ascii = Some(crate::ascii_art::image_to_ascii(&img, 32, 18));
             }
         }
     }

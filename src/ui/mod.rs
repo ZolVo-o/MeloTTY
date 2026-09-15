@@ -26,7 +26,7 @@ pub fn render(
     track_duration: Option<Duration>,
     spectrum: &[f32],
     search_query: &str,
-    cover_ascii: &Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    cover_ascii: &Option<crate::ascii_art::Artwork>,
 ) {
     dashboard::render(
         f,

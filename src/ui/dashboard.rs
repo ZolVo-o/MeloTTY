@@ -26,7 +26,7 @@ pub fn render(
     track_duration: Option<Duration>,
     spectrum: &[f32],
     search_query: &str,
-    cover_ascii: &Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    cover_ascii: &Option<crate::ascii_art::Artwork>,
 ) {
     let theme = &CATTPUCCIN;
     let area = f.area();
@@ -231,7 +231,7 @@ fn render_now_playing_page(
     position: Duration,
     duration: Option<Duration>,
     spectrum: &[f32],
-    cover: &Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    cover: &Option<crate::ascii_art::Artwork>,
     theme: &Theme,
 ) {
     f.render_widget(
@@ -417,7 +417,7 @@ fn render_hero(
     playlist: &Playlist,
     is_playing: bool,
     has_sink: bool,
-    cover_ascii: &Option<Vec<(String, Vec<ratatui::style::Color>)>>,
+    cover_ascii: &Option<crate::ascii_art::Artwork>,
     theme: &Theme,
 ) {
     let block = card("NOW PLAYING", area, theme.accent, theme);
@@ -519,22 +519,23 @@ fn render_empty_cover(f: &mut Frame, area: Rect, theme: &Theme) {
     );
 }
 
-fn render_cover(
-    f: &mut Frame,
-    area: Rect,
-    lines: &[(String, Vec<ratatui::style::Color>)],
-    theme: &Theme,
-) {
+fn render_cover(f: &mut Frame, area: Rect, lines: &crate::ascii_art::Artwork, theme: &Theme) {
     let inner = area;
     let mut rendered = Vec::with_capacity(lines.len());
 
-    for (text, colors) in lines {
+    for (text, foreground, background) in lines.iter().take(area.height.saturating_sub(2) as usize)
+    {
         let spans = text
             .chars()
             .enumerate()
+            .take(area.width.saturating_sub(2) as usize)
             .map(|(index, character)| {
-                let color = colors.get(index).copied().unwrap_or(theme.purple);
-                Span::styled(character.to_string(), Style::default().fg(color))
+                let foreground = foreground.get(index).copied().unwrap_or(theme.purple);
+                let background = background.get(index).copied().unwrap_or(theme.bg);
+                Span::styled(
+                    character.to_string(),
+                    Style::default().fg(foreground).bg(background),
+                )
             })
             .collect::<Vec<_>>();
         rendered.push(Line::from(spans));
