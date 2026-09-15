@@ -40,8 +40,10 @@ pub fn render(
                 format!("{}  {}  {}", elapsed_str, visualizer, total_str)
             },
         )
+    } else if is_playing || track_position > Duration::ZERO {
+        (0.0, format!("{} / --:--", format_duration(track_position)))
     } else {
-        (0.0, " --:-- • --:-- ".to_string())
+        (0.0, "--:-- / --:--".to_string())
     };
 
     let gauge = Gauge::default()
